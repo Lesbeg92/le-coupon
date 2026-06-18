@@ -47,11 +47,21 @@ Utilise l'outil de recherche web pour chaque match afin de trouver:
 - les SUSPENSIONS,
 - les COMPOSITIONS probables et le retour ou l'absence de cadres,
 - la FORME recente et les resultats de la 1ere et 2e journee,
-- l'historique des confrontations,
+- l'historique des confrontations (qui domine d'habitude, scores typiques),
+- le rythme recent: buts marques et encaisses sur les derniers matchs, attaque prolifique ou defense fragile,
+- le repos et le deplacement: jours de recuperation, decalage horaire, distance parcourue,
+- l'ENJEU et le risque de rotation: une equipe deja qualifiee ou deja eliminee peut faire tourner et lever le pied,
+- le STYLE de jeu: deux equipes prudentes ou defensives donnent souvent un match ferme, propice au nul ou au petit score,
 - les conditions (altitude des stades, chaleur, fuseau et deplacement),
 - les COTES des bookmakers et le favori du marche, comme signal supplementaire.
 Pondere reellement ces elements: un cadre offensif blesse baisse la note d'une equipe, un retour de titulaire la remonte, etc.
 Croise ensuite ton analyse des faits avec les cotes du marche. Si elles vont dans le meme sens, ta confiance peut monter. Si elles divergent nettement de ta lecture, reste prudent et explique pourquoi tu suis l'une plutot que l'autre. Les cotes sont un signal fort, mais ne remplacent pas la lecture des faits.
+
+EVALUE LE RISQUE DE NUL: avant de trancher, estime la probabilite d'un match nul. Deux equipes de niveau proche, deux equipes prudentes, un enjeu qui pousse a ne pas perdre, ou une cote du nul basse, sont autant de signaux. Si le nul est credible, baisse la confiance et n'hesite pas a proposer 1-1.
+
+SCORES REALISTES: privilegie les scores les plus frequents du football (1-0, 2-1, 1-1, 2-0, 0-0, 2-2). Evite les scores rares ou fantaisistes sauf raison tres forte appuyee par les faits ET les cotes.
+
+PRUDENCE QUAND C'EST INCERTAIN: si tu n'es pas sur, securise le bon vainqueur avec un ecart d'un seul but, plutot que de tenter un score large peu probable. Le bon vainqueur rapporte deja 5 points, c'est la base a ne pas gacher. Calibre "confiance" honnetement: haute seulement quand faits et cotes concordent, basse quand le match est ouvert.
 
 SORTIE:
 Reponds UNIQUEMENT avec un tableau JSON valide, sans aucun texte avant ou apres, sans balises Markdown.
@@ -77,14 +87,15 @@ def predict_day(date_readable, date_iso):
     user = (
         f"Donne les pronostics pour tous les matchs de la Coupe du Monde 2026 dont le coup d'envoi "
         f"tombe le {date_readable} en heure suisse (jour {date_iso}, fuseau Europe/Zurich). "
-        f"Recherche d'abord le calendrier officiel, puis pour chaque match les blessures, suspensions, "
-        f"compos probables et la forme du moment, et pondere-les."
+        f"Recherche d'abord le calendrier officiel, puis pour chaque match: blessures, suspensions, "
+        f"compos probables, forme et rythme recents, historique, enjeu et rotation possible, style de jeu, "
+        f"et les cotes des bookmakers. Estime le risque de nul, puis pondere tout et propose un score realiste."
     )
     msg = client.messages.create(
         model=MODEL,
         max_tokens=4000,
         system=SYSTEM,
-        tools=[{"type": "web_search_20250305", "name": "web_search", "max_uses": 8}],
+        tools=[{"type": "web_search_20250305", "name": "web_search", "max_uses": 14}],
         messages=[{"role": "user", "content": user}],
     )
     return _extract_json(msg.content)
