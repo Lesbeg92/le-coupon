@@ -68,8 +68,9 @@ Reponds UNIQUEMENT avec un tableau JSON valide, sans aucun texte avant ou apres,
 Donne l'heure de coup d'envoi en UTC au format ISO 8601 avec Z (champ kickoffUTC).
 Liste TOUS les matchs dont le coup d'envoi tombe le jour demande en HEURE SUISSE (Europe/Zurich), tries par heure croissante. Inclus aussi les matchs deja joues ce jour-la, avec leur score reel dans resultatA/resultatB (sinon null).
 Chaque element:
-{"kickoffUTC":"2026-06-18T19:00:00Z","lieu":"ville","journee":"2e journee, groupe A","equipeA":"...","drapeauA":"emoji","equipeB":"...","drapeauB":"emoji","scoreA":0,"scoreB":0,"resultatA":null,"resultatB":null,"type":"victoire|nul|reduit","confiance":"haute|moyenne|basse","analyse":"2 phrases max","facteurs":["blessure ou info cle 1","info cle 2"]}.
+{"kickoffUTC":"2026-06-18T19:00:00Z","lieu":"ville","journee":"2e journee, groupe A","equipeA":"...","drapeauA":"emoji","equipeB":"...","drapeauB":"emoji","scoreA":0,"scoreB":0,"resultatA":null,"resultatB":null,"type":"victoire|nul|reduit","confiance":"haute|moyenne|basse","analyse":"2 phrases max","facteurs":["blessure ou info cle 1","info cle 2"],"distribution":[{"score":"2-1","p":0.15},{"score":"1-1","p":0.13},{"score":"1-0","p":0.12},{"score":"2-0","p":0.10},{"score":"0-0","p":0.08},{"score":"3-1","p":0.07}]}.
 Le champ "facteurs" liste en clair les infos live retenues (blessures, suspensions, retours, forme), pour que l'utilisateur voie ce que tu as pris en compte. Inclus aussi une ligne sur le marche quand l'information existe, par exemple "Marche: France favorite (cote ~1.5)".
+Le champ "distribution" donne les 6 a 10 scores finaux les plus plausibles avec leur probabilite estimee (p entre 0 et 1), reflet honnete de ton analyse. Le score conseille sera recalcule a partir de cette distribution pour maximiser l'esperance de points RTS, donc soigne surtout cette distribution. Dans "analyse", reste qualitatif sur le raisonnement et ne fige pas un score chiffre.
 N'utilise jamais le tiret cadratin. Ne commence aucune phrase par "Je". Si aucun match ce jour-la, renvoie []."""
 
 
@@ -80,6 +81,53 @@ def _extract_json(blocks):
     if s == -1 or e == -1:
         raise ValueError("Reponse sans JSON exploitable")
     return json.loads(text[s:e + 1])
+
+
+def rts_points(pa, pb, ra, rb):
+    """Points RTS (phase de groupes) d'un pronostic pa-pb face a un resultat ra-rb."""
+    pts = 0
+    pw = 1 if pa > pb else (-1 if pa < pb else 0)
+    rw = 1 if ra > rb else (-1 if ra < rb else 0)
+    if pw == rw:
+        pts += 5
+    if pa == ra:
+        pts += 1
+    if pb == rb:
+        pts += 1
+    if pw == rw and (pa - pb) == (ra - rb):
+        pts += 3
+    return pts
+
+
+def _parse_score(value):
+    try:
+        a, b = str(value).replace(":", "-").split("-")
+        return int(a), int(b)
+    except Exception:
+        return None
+
+
+def ev_optimal(distribution):
+    """Choisit le score qui maximise l'esperance de points RTS sur la distribution donnee."""
+    outcomes = []
+    total = 0.0
+    for d in distribution or []:
+        sc = _parse_score(d.get("score"))
+        p = d.get("p")
+        if sc is None or not isinstance(p, (int, float)) or p <= 0:
+            continue
+        outcomes.append((sc[0], sc[1], float(p)))
+        total += float(p)
+    if not outcomes or total <= 0:
+        return None
+    outcomes = [(a, b, p / total) for (a, b, p) in outcomes]
+    best, best_ev = None, -1.0
+    for pa in range(0, 6):
+        for pb in range(0, 6):
+            ev = sum(p * rts_points(pa, pb, ra, rb) for (ra, rb, p) in outcomes)
+            if ev > best_ev + 1e-9:
+                best_ev, best = ev, (pa, pb)
+    return best
 
 
 def predict_day(date_readable, date_iso):
@@ -93,9 +141,18 @@ def predict_day(date_readable, date_iso):
     )
     msg = client.messages.create(
         model=MODEL,
-        max_tokens=4000,
+        max_tokens=5000,
         system=SYSTEM,
         tools=[{"type": "web_search_20250305", "name": "web_search", "max_uses": 14}],
         messages=[{"role": "user", "content": user}],
     )
-    return _extract_json(msg.content)
+    matches = _extract_json(msg.content)
+    for m in matches:
+        if m.get("resultatA") is not None:
+            continue  # match deja joue, on ne touche pas au conseil historique
+        opt = ev_optimal(m.get("distribution"))
+        if opt:
+            m["scoreA"], m["scoreB"] = opt[0], opt[1]
+            diff = abs(opt[0] - opt[1])
+            m["type"] = "nul" if opt[0] == opt[1] else ("reduit" if diff >= 3 else "victoire")
+    return matches
