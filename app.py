@@ -36,17 +36,44 @@ def cache_path(date_iso):
 
 def get_predictions(date_iso, force=False):
     path = cache_path(date_iso)
-    if not force and os.path.exists(path):
+    now = dt.datetime.now().timestamp()
+    today = dt.date.today().isoformat()
+
+    blob = None
+    if os.path.exists(path):
         try:
             with open(path, "r", encoding="utf-8") as f:
                 blob = json.load(f)
-            if dt.datetime.now().timestamp() - blob.get("ts", 0) < CACHE_TTL_SECONDS:
-                return blob["matches"]
         except Exception:
-            pass
+            blob = None
+
+    # Duree de cache adaptative.
+    # Jours a venir: 6h, ils bougent peu.
+    # Aujourd'hui: 20 min, pour suivre les nouvelles du jour.
+    # Match imminent ou en cours: 5 min, pour capter la compo officielle.
+    ttl = CACHE_TTL_SECONDS
+    if date_iso == today:
+        ttl = 20 * 60
+        if blob:
+            for mm in blob.get("matches", []):
+                ko = mm.get("kickoffUTC")
+                if not ko:
+                    continue
+                try:
+                    kt = dt.datetime.fromisoformat(str(ko).replace("Z", "+00:00")).timestamp()
+                except Exception:
+                    continue
+                # de 90 min avant le coup d'envoi a 150 min apres
+                if -150 * 60 < (kt - now) < 90 * 60:
+                    ttl = 5 * 60
+                    break
+
+    if not force and blob and (now - blob.get("ts", 0) < ttl):
+        return blob["matches"]
+
     matches = predictor.predict_day(readable(date_iso), date_iso)
     with open(path, "w", encoding="utf-8") as f:
-        json.dump({"ts": dt.datetime.now().timestamp(), "matches": matches}, f, ensure_ascii=False, indent=2)
+        json.dump({"ts": now, "matches": matches}, f, ensure_ascii=False, indent=2)
     return matches
 
 
