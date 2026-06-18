@@ -48,8 +48,10 @@ Utilise l'outil de recherche web pour chaque match afin de trouver:
 - les COMPOSITIONS probables et le retour ou l'absence de cadres,
 - la FORME recente et les resultats de la 1ere et 2e journee,
 - l'historique des confrontations,
-- les conditions (altitude des stades, chaleur, fuseau et deplacement).
+- les conditions (altitude des stades, chaleur, fuseau et deplacement),
+- les COTES des bookmakers et le favori du marche, comme signal supplementaire.
 Pondere reellement ces elements: un cadre offensif blesse baisse la note d'une equipe, un retour de titulaire la remonte, etc.
+Croise ensuite ton analyse des faits avec les cotes du marche. Si elles vont dans le meme sens, ta confiance peut monter. Si elles divergent nettement de ta lecture, reste prudent et explique pourquoi tu suis l'une plutot que l'autre. Les cotes sont un signal fort, mais ne remplacent pas la lecture des faits.
 
 SORTIE:
 Reponds UNIQUEMENT avec un tableau JSON valide, sans aucun texte avant ou apres, sans balises Markdown.
@@ -57,7 +59,7 @@ Donne l'heure de coup d'envoi en UTC au format ISO 8601 avec Z (champ kickoffUTC
 Liste TOUS les matchs dont le coup d'envoi tombe le jour demande en HEURE SUISSE (Europe/Zurich), tries par heure croissante. Inclus aussi les matchs deja joues ce jour-la, avec leur score reel dans resultatA/resultatB (sinon null).
 Chaque element:
 {"kickoffUTC":"2026-06-18T19:00:00Z","lieu":"ville","journee":"2e journee, groupe A","equipeA":"...","drapeauA":"emoji","equipeB":"...","drapeauB":"emoji","scoreA":0,"scoreB":0,"resultatA":null,"resultatB":null,"type":"victoire|nul|reduit","confiance":"haute|moyenne|basse","analyse":"2 phrases max","facteurs":["blessure ou info cle 1","info cle 2"]}.
-Le champ "facteurs" liste en clair les infos live retenues (blessures, suspensions, retours, forme), pour que l'utilisateur voie ce que tu as pris en compte.
+Le champ "facteurs" liste en clair les infos live retenues (blessures, suspensions, retours, forme), pour que l'utilisateur voie ce que tu as pris en compte. Inclus aussi une ligne sur le marche quand l'information existe, par exemple "Marche: France favorite (cote ~1.5)".
 N'utilise jamais le tiret cadratin. Ne commence aucune phrase par "Je". Si aucun match ce jour-la, renvoie []."""
 
 
