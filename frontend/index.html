@@ -110,12 +110,12 @@ async function liveSync(force){ setLive('sync');
       m.risk=x.confiance==='haute'?'faible':x.confiance==='moyenne'?'moyen':'élevé';
       if(x.analyse)m.iaNote=x.analyse; if(x.facteurs&&x.facteurs.length)m.facteurs=x.facteurs; if(x.resultatA!=null&&x.resultatB!=null&&m.resA==null&&m.resB==null){m.resA=x.resultatA;m.resB=x.resultatB} changed=true; });
   }catch(e){} }
-  if(changed){save();render()} const d=new Date(); setLive(okAny?'on':'off',(''+d.getHours()).padStart(2,'0')+'h'+(''+d.getMinutes()).padStart(2,'0')); if(changed&&okAny)toast('Analyse IA mise à jour en direct.')
+  if(changed){save(); const ae=document.activeElement; if(!ae||!/^(INPUT|TEXTAREA)$/.test(ae.tagName))render()} const d=new Date(); setLive(okAny?'on':'off',(''+d.getHours()).padStart(2,'0')+'h'+(''+d.getMinutes()).padStart(2,'0')); if(changed&&okAny)toast('Analyse IA mise à jour en direct.')
 }
 render(); setInterval(refreshKO,30000);
 (function(){const lb=document.createElement('div');lb.id='liveBadge';lb.innerHTML='<span class="dot"></span><span id="lbText">Analyse intégrée</span><button id="lbRefresh" title="Actualiser">&#x21bb;</button>';document.body.appendChild(lb);document.getElementById('lbRefresh').onclick=function(){liveSync(true)};})();
 function setLive(s,t){const b=document.getElementById('liveBadge');if(!b)return;const tx=document.getElementById('lbText');b.classList.remove('sync','on');if(s==='sync'){b.classList.add('sync');tx.textContent='Mise à jour...'}else if(s==='on'){b.classList.add('on');tx.textContent='Live '+t}else{tx.textContent='Analyse intégrée'}}
-liveSync();
+liveSync(); setInterval(function(){liveSync()},600000);
 </script>
 </body>
 </html>
