@@ -141,7 +141,7 @@ def predict_day(date_readable, date_iso):
     )
     msg = client.messages.create(
         model=MODEL,
-        max_tokens=5000,
+        max_tokens=8000,
         system=SYSTEM,
         tools=[{"type": "web_search_20250305", "name": "web_search", "max_uses": 14}],
         messages=[{"role": "user", "content": user}],

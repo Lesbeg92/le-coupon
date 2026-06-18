@@ -6,6 +6,7 @@ Ton interface va chercher ces donnees toute seule au chargement.
 """
 
 import os
+import re
 import json
 import datetime as dt
 from flask import Flask, request, jsonify, send_file
@@ -72,8 +73,12 @@ def get_predictions(date_iso, force=False):
         return blob["matches"]
 
     matches = predictor.predict_day(readable(date_iso), date_iso)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump({"ts": now, "matches": matches}, f, ensure_ascii=False, indent=2)
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump({"ts": now, "matches": matches}, f, ensure_ascii=False, indent=2)
+    except Exception:
+        # Un cache non ecrit n'empeche pas de renvoyer les pronostics.
+        pass
     return matches
 
 
@@ -86,6 +91,9 @@ def index():
 @app.route("/api/predictions")
 def api_predictions():
     date_iso = request.args.get("date") or dt.date.today().isoformat()
+    # Securite: on n'accepte qu'une date AAAA-MM-JJ, sinon on retombe sur aujourd'hui.
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(date_iso)):
+        date_iso = dt.date.today().isoformat()
     force = request.args.get("refresh") == "1"
     try:
         matches = get_predictions(date_iso, force=force)
