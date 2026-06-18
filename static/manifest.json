@@ -1,0 +1,13 @@
+{
+  "name": "Le Coupon",
+  "short_name": "Le Coupon",
+  "description": "Assistant de pronostics Coupe du Monde 2026",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#06241a",
+  "theme_color": "#071d16",
+  "icons": [
+    { "src": "/static/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/static/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
