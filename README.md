@@ -22,7 +22,7 @@ python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 export ANTHROPIC_API_KEY="ta_cle_ici"
-export CLAUDE_MODEL="claude-sonnet-4-5"   # un modele auquel ta cle a acces
+export CLAUDE_MODEL="claude-sonnet-4-6"   # un modele auquel ta cle a acces
 python app.py
 ```
 
