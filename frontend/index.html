@@ -177,7 +177,12 @@ async function syncResults(){ try{
   });
   if(changed){save(); const ae=document.activeElement; if(!ae||!/^(INPUT|TEXTAREA)$/.test(ae.tagName))render()}
 }catch(e){} }
-async function liveSync(force){ setLive('sync');
+async function checkHealth(){ setLive('sync');
+  for(let i=0;i<6;i++){ try{ const r=await fetch('/api/health?t='+Date.now(),{cache:'no-store'}); if(r.ok){ setLive('on'); return } }catch(e){}
+    await new Promise(res=>setTimeout(res,5000)); }
+  setLive('off');
+}
+async function liveSync(force){
   const now=new Date(); const base=new Date(now.getFullYear(),now.getMonth(),now.getDate()); const horizon=new Date(base.getTime()+3*864e5);
   const days=[...new Set(state.matches.filter(m=>{const d=new Date(m.date);return d>=base&&d<=horizon}).map(m=>m.date.slice(0,10)))];
   let changed=false,connected=false;const probe=days.length?days:[(state.matches[0]?state.matches[0].date.slice(0,10):base.toISOString().slice(0,10))];
@@ -190,12 +195,12 @@ async function liveSync(force){ setLive('sync');
       m.risk=x.confiance==='haute'?'faible':x.confiance==='moyenne'?'moyen':'élevé';
       if(x.analyse)m.iaNote=x.analyse; if(x.facteurs&&x.facteurs.length)m.facteurs=x.facteurs; changed=true; });
   }catch(e){} }
-  if(changed){save(); const ae=document.activeElement; if(!ae||!/^(INPUT|TEXTAREA)$/.test(ae.tagName))render()} setLive(connected?'on':'off'); if(changed&&connected)toast('Analyse IA mise à jour en direct.')
+  if(changed){save(); const ae=document.activeElement; if(!ae||!/^(INPUT|TEXTAREA)$/.test(ae.tagName))render()} if(changed&&connected)toast('Analyse IA mise à jour en direct.')
 }
 render(); setInterval(refreshKO,30000);
-(function(){const lb=document.createElement('div');lb.id='liveBadge';lb.innerHTML='<span class="dot"></span><span id="lbText">Connexion...</span><button id="lbRefresh" title="Actualiser">&#x21bb;</button>';document.body.appendChild(lb);document.getElementById('lbRefresh').onclick=function(){liveSync(true);syncResults()};})();
+(function(){const lb=document.createElement('div');lb.id='liveBadge';lb.innerHTML='<span class="dot"></span><span id="lbText">Connexion...</span><button id="lbRefresh" title="Actualiser">&#x21bb;</button>';document.body.appendChild(lb);document.getElementById('lbRefresh').onclick=function(){checkHealth();liveSync(true);syncResults()};})();
 function setLive(s,t){const b=document.getElementById('liveBadge');if(!b)return;const tx=document.getElementById('lbText');b.classList.remove('sync','on','off');if(s==='sync'){b.classList.add('sync');tx.textContent='Connexion...'}else if(s==='on'){b.classList.add('on');tx.textContent='IA connectée'}else{b.classList.add('off');tx.textContent='Hors ligne'}}
-liveSync(); syncResults(); setInterval(function(){liveSync()},600000); setInterval(syncResults,600000);
+checkHealth(); liveSync(); syncResults(); setInterval(checkHealth,120000); setInterval(function(){liveSync()},600000); setInterval(syncResults,600000);
 </script>
 </body>
 </html>
