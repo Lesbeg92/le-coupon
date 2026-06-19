@@ -161,9 +161,25 @@ function openPast(id){let m=state.matches.find(x=>x.id===id);let p=pts(m.userA,m
 function openDrawer(){document.getElementById('drawer').classList.add('open');document.getElementById('overlay').classList.add('open')} function closeDrawer(){document.getElementById('drawer').classList.remove('open');document.getElementById('overlay').classList.remove('open')} function optimizeDay(){let n=0; state.matches.filter(isUpcoming).forEach(m=>{generateIA(m); if((m.userA==null||m.userB==null)&&m.iaA!=null&&m.iaB!=null){m.userA=m.iaA;m.userB=m.iaB;n++}}); save();render(); toast(n?`${n} pronostic(s) remplis avec le conseil IA. Ajuste si besoin.`:'Tous tes matchs à venir sont déjà pronostiqués.')} function koInfo(ms){const diff=ms-Date.now(); if(diff<=0)return {t:'Paris fermés',c:'red'}; const h=Math.floor(diff/3600000),m=Math.floor((diff%3600000)/60000); if(diff<=3600000)return {t:'Ferme bientôt · '+m+' min',c:'red'}; if(h<24)return {t:"Coup d'envoi dans "+h+'h'+(''+m).padStart(2,'0'),c:'amber'}; const d=Math.floor(h/24); return {t:'Dans '+d+'j '+(h%24)+'h',c:'slate'}} function koPill(m){const ms=+new Date(m.date);const i=koInfo(ms);return `<span class="pill ${i.c}" data-ko="${ms}">${i.t}</span>`} function refreshKO(){document.querySelectorAll('[data-ko]').forEach(el=>{const i=koInfo(+el.getAttribute('data-ko'));el.textContent=i.t;el.className='pill '+i.c})} function requestNotify(){if('Notification' in window)Notification.requestPermission().then(()=>toast('Rappels activés sur cet appareil.'));else toast('Notifications non prises en charge par ce navigateur.')} function resetApp(){if(confirm('Recharger les données de base ?')){localStorage.removeItem('couponIA_v10');location.reload()}}
 function _norm(s){return (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z]/g,'')}
 function _pair(a,b){return [_norm(a),_norm(b)].sort().join('_')}
+/* ===== Scores officiels openfootball (source ouverte, sans clé) ===== */
+const WC_URL='https://raw.githubusercontent.com/openfootball/worldcup.json/master/2026/worldcup.json';
+const WC_FR={'Mexico':'Mexique','South Africa':'Afrique du Sud','South Korea':'Corée du Sud','Czech Republic':'Tchéquie','Bosnia & Herzegovina':'Bosnie-Herzégovine','Canada':'Canada','Qatar':'Qatar','Switzerland':'Suisse','Brazil':'Brésil','Haiti':'Haïti','Morocco':'Maroc','Scotland':'Écosse','Australia':'Australie','Paraguay':'Paraguay','Turkey':'Turquie','USA':'États-Unis','Germany':'Allemagne','Curaçao':'Curaçao','Ivory Coast':'Côte d’Ivoire','Ecuador':'Équateur','Japan':'Japon','Netherlands':'Pays-Bas','Sweden':'Suède','Tunisia':'Tunisie','Belgium':'Belgique','Iran':'Iran','New Zealand':'Nouvelle-Zélande','Egypt':'Égypte','Saudi Arabia':'Arabie saoudite','Cape Verde':'Cap-Vert','Spain':'Espagne','Uruguay':'Uruguay','France':'France','Iraq':'Irak','Norway':'Norvège','Senegal':'Sénégal','Algeria':'Algérie','Argentina':'Argentine','Austria':'Autriche','Jordan':'Jordanie','Colombia':'Colombie','Uzbekistan':'Ouzbékistan','Portugal':'Portugal','DR Congo':'RD Congo','England':'Angleterre','Croatia':'Croatie','Ghana':'Ghana','Panama':'Panama'};
+async function syncResults(){ try{
+  const r=await fetch(WC_URL,{cache:'no-store'}); if(!r.ok)return; const data=await r.json();
+  const fr=n=>{ if(n&&typeof n==='object')n=n.name; return WC_FR[n]||n; };
+  let changed=false;
+  (data.matches||[]).forEach(w=>{ const sc=w.score&&w.score.ft; if(!sc||sc.length<2||sc[0]==null||sc[1]==null)return;
+    const t1=fr(w.team1), t2=fr(w.team2); const wd=w.date?new Date(w.date).getTime():null;
+    state.matches.forEach(m=>{ if(m.resA!=null&&m.resB!=null)return; const md=new Date(m.date).getTime();
+      if(wd!=null&&Math.abs(md-wd)>36*36e5)return;
+      if(m.a===t1&&m.b===t2){m.resA=sc[0];m.resB=sc[1];changed=true}
+      else if(m.a===t2&&m.b===t1){m.resA=sc[1];m.resB=sc[0];changed=true} });
+  });
+  if(changed){save(); const ae=document.activeElement; if(!ae||!/^(INPUT|TEXTAREA)$/.test(ae.tagName))render()}
+}catch(e){} }
 async function liveSync(force){ setLive('sync');
   const now=new Date(); const base=new Date(now.getFullYear(),now.getMonth(),now.getDate()); const horizon=new Date(base.getTime()+3*864e5);
-  const past=new Date(base.getTime()-2*864e5); const days=[...new Set(state.matches.filter(m=>{const d=new Date(m.date); const up=d>=base&&d<=horizon; const fin=d<now&&d>=past&&(m.resA==null||m.resB==null); return up||fin}).map(m=>m.date.slice(0,10)))];
+  const days=[...new Set(state.matches.filter(m=>{const d=new Date(m.date);return d>=base&&d<=horizon}).map(m=>m.date.slice(0,10)))];
   let changed=false,connected=false;const probe=days.length?days:[(state.matches[0]?state.matches[0].date.slice(0,10):base.toISOString().slice(0,10))];
   for(const day of probe){ try{
     const r=await fetch('/api/predictions?date='+day+(force?'&refresh=1':'')); if(!r.ok)continue; const data=await r.json(); if(!data.ok)continue; connected=true; if(!days.length||!data.matches)continue;
@@ -172,14 +188,14 @@ async function liveSync(force){ setLive('sync');
       if(x.scoreA!=null&&x.scoreB!=null){m.iaA=x.scoreA;m.iaB=x.scoreB}
       m.conf=x.confiance==='haute'?80:x.confiance==='moyenne'?66:56;
       m.risk=x.confiance==='haute'?'faible':x.confiance==='moyenne'?'moyen':'élevé';
-      if(x.analyse)m.iaNote=x.analyse; if(x.facteurs&&x.facteurs.length)m.facteurs=x.facteurs; if(x.resultatA!=null&&x.resultatB!=null&&m.resA==null&&m.resB==null){m.resA=x.resultatA;m.resB=x.resultatB} changed=true; });
+      if(x.analyse)m.iaNote=x.analyse; if(x.facteurs&&x.facteurs.length)m.facteurs=x.facteurs; changed=true; });
   }catch(e){} }
   if(changed){save(); const ae=document.activeElement; if(!ae||!/^(INPUT|TEXTAREA)$/.test(ae.tagName))render()} setLive(connected?'on':'off'); if(changed&&connected)toast('Analyse IA mise à jour en direct.')
 }
 render(); setInterval(refreshKO,30000);
-(function(){const lb=document.createElement('div');lb.id='liveBadge';lb.innerHTML='<span class="dot"></span><span id="lbText">Connexion...</span><button id="lbRefresh" title="Actualiser">&#x21bb;</button>';document.body.appendChild(lb);document.getElementById('lbRefresh').onclick=function(){liveSync(true)};})();
+(function(){const lb=document.createElement('div');lb.id='liveBadge';lb.innerHTML='<span class="dot"></span><span id="lbText">Connexion...</span><button id="lbRefresh" title="Actualiser">&#x21bb;</button>';document.body.appendChild(lb);document.getElementById('lbRefresh').onclick=function(){liveSync(true);syncResults()};})();
 function setLive(s,t){const b=document.getElementById('liveBadge');if(!b)return;const tx=document.getElementById('lbText');b.classList.remove('sync','on','off');if(s==='sync'){b.classList.add('sync');tx.textContent='Connexion...'}else if(s==='on'){b.classList.add('on');tx.textContent='IA connectée'}else{b.classList.add('off');tx.textContent='Hors ligne'}}
-liveSync(); setInterval(function(){liveSync()},600000);
+liveSync(); syncResults(); setInterval(function(){liveSync()},600000); setInterval(syncResults,600000);
 </script>
 </body>
 </html>
