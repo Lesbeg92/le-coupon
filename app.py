@@ -102,6 +102,12 @@ def api_predictions():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+@app.route("/api/health")
+def api_health():
+    # Test de connexion leger et instantane (aucun appel IA).
+    return jsonify({"ok": True, "ia": bool(os.environ.get("ANTHROPIC_API_KEY"))})
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "5000"))
     # host 0.0.0.0 pour que ton telephone puisse joindre le serveur sur le meme WiFi
