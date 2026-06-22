@@ -180,6 +180,71 @@ def fit_xg_to_market(ph, pd, pa):
     return best
 
 
+WC_FR = {'Mexico':'Mexique','South Africa':'Afrique du Sud','South Korea':'Corée du Sud','Czech Republic':'Tchéquie','Bosnia & Herzegovina':'Bosnie-Herzégovine','Canada':'Canada','Qatar':'Qatar','Switzerland':'Suisse','Brazil':'Brésil','Haiti':'Haïti','Morocco':'Maroc','Scotland':'Écosse','Australia':'Australie','Paraguay':'Paraguay','Turkey':'Turquie','USA':'États-Unis','Germany':'Allemagne','Curaçao':'Curaçao','Ivory Coast':'Côte d’Ivoire','Ecuador':'Équateur','Japan':'Japon','Netherlands':'Pays-Bas','Sweden':'Suède','Tunisia':'Tunisie','Belgium':'Belgique','Iran':'Iran','New Zealand':'Nouvelle-Zélande','Egypt':'Égypte','Saudi Arabia':'Arabie saoudite','Cape Verde':'Cap-Vert','Spain':'Espagne','Uruguay':'Uruguay','France':'France','Iraq':'Irak','Norway':'Norvège','Senegal':'Sénégal','Algeria':'Algérie','Argentina':'Argentine','Austria':'Autriche','Jordan':'Jordanie','Colombia':'Colombie','Uzbekistan':'Ouzbékistan','Portugal':'Portugal','DR Congo':'RD Congo','England':'Angleterre','Croatia':'Croatie','Ghana':'Ghana','Panama':'Panama'}
+
+def _recent_form_context(date_iso):
+    """Forme reelle recente des equipes du jour, depuis openfootball (repli silencieux)."""
+    try:
+        import urllib.request, datetime as _dt
+        url = "https://raw.githubusercontent.com/openfootball/worldcup.json/master/2026/worldcup.json"
+        req = urllib.request.Request(url, headers={"User-Agent": "le-coupon"})
+        with urllib.request.urlopen(req, timeout=8) as r:
+            data = json.loads(r.read().decode("utf-8"))
+    except Exception:
+        return ""
+    matches = data.get("matches") or []
+    def nm(t):
+        if isinstance(t, dict):
+            t = t.get("name")
+        return WC_FR.get(t, t) if t else t
+    def ft(w):
+        sc = w.get("score") or {}
+        f = sc.get("ft")
+        if isinstance(f, list) and len(f) == 2 and f[0] is not None and f[1] is not None:
+            return f
+        return None
+    try:
+        d0 = _dt.date.fromisoformat(date_iso)
+        days = {date_iso, (d0 - _dt.timedelta(days=1)).isoformat()}
+    except Exception:
+        days = {date_iso}
+    teams = []
+    for w in matches:
+        if w.get("date") in days:
+            for t in (nm(w.get("team1")), nm(w.get("team2"))):
+                if t and t not in teams:
+                    teams.append(t)
+    if not teams:
+        return ""
+    def form(team):
+        hist = []
+        for w in matches:
+            f = ft(w)
+            if not f or (w.get("date") or "") >= date_iso:
+                continue
+            a, b = nm(w.get("team1")), nm(w.get("team2"))
+            if team == a:
+                gf, ga, opp = f[0], f[1], b
+            elif team == b:
+                gf, ga, opp = f[1], f[0], a
+            else:
+                continue
+            res = "V" if gf > ga else ("D" if gf < ga else "N")
+            hist.append((w.get("date") or "", "%s %d-%d vs %s" % (res, gf, ga, opp)))
+        hist.sort(reverse=True)
+        return ", ".join(h[1] for h in hist[:5]) if hist else None
+    lines = []
+    for t in teams:
+        fr = form(t)
+        if fr:
+            lines.append("- %s : %s" % (t, fr))
+    if not lines:
+        return ""
+    return ("\n\nDONNEES REELLES DE FORME (source officielle, fiables, a privilegier sur le ressenti) "
+            "pour les equipes concernees, du plus recent au plus ancien (V victoire, N nul, D defaite):\n"
+            + "\n".join(lines))
+
+
 def predict_day(date_readable, date_iso):
     client = _get_client()
     user = (
@@ -189,6 +254,7 @@ def predict_day(date_readable, date_iso):
         f"compos probables, forme et rythme recents, historique, enjeu et rotation possible, style de jeu, "
         f"et les cotes des bookmakers. Estime le risque de nul, puis pondere tout et propose un score realiste."
     )
+    user += _recent_form_context(date_iso)
     msg = client.messages.create(
         model=MODEL,
         max_tokens=8000,
