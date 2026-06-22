@@ -216,7 +216,7 @@ def predict_day(date_readable, date_iso):
             if mk:
                 ph, pdr, pa_ = mk
                 xa_m, xb_m = fit_xg_to_market(ph, pdr, pa_)
-                w = 0.55  # poids du marche dans le melange
+                w = 0.70  # poids du marche dans le melange (cotes = signal le plus fiable)
                 xa = w * xa_m + (1 - w) * xa
                 xb = w * xb_m + (1 - w) * xb
                 eqa, eqb = m.get("equipeA", "Dom"), m.get("equipeB", "Ext")
