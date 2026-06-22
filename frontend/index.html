@@ -25,6 +25,51 @@
   body[data-view]:not([data-view="accueil"]) .hero .title{font-size:24px;line-height:1;margin:2px 0 3px;letter-spacing:-.03em}
   body[data-view]:not([data-view="accueil"]) .hero .subtitle{display:none}
   body[data-view]:not([data-view="accueil"]) .hero .sup{font-size:10px}
+
+  /* ===================== RESPONSIVE MULTI-APPAREILS ===================== */
+  /* Tablette : contenu plus large, grilles plus denses */
+  @media (min-width:700px){
+    .app{max-width:940px;padding:26px 22px 112px}
+    .topgrid{grid-template-columns:repeat(4,1fr)}
+    .miniGrid{grid-template-columns:repeat(3,1fr)}
+    .koRound{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .koRound h3{grid-column:1/-1}
+  }
+  /* Ordinateur : rail de navigation lateral a gauche */
+  @media (min-width:1024px){
+    .nav{top:0;bottom:0;right:auto;width:230px;border-top:0;border-right:1px solid var(--line);background:rgba(5,22,17,.96)}
+    .navin{grid-template-columns:1fr;align-content:start;gap:6px;padding:22px 14px;height:100%}
+    .nav button{display:flex;align-items:center;gap:12px;justify-content:flex-start;text-align:left;font-size:14px;letter-spacing:0;padding:12px 14px;border-radius:14px}
+    .nav b{display:inline;font-size:20px;line-height:1}
+    .app{max-width:1200px;margin:0 auto 0 230px;padding:30px 44px 48px}
+    .title{font-size:60px}
+    body[data-view]:not([data-view="accueil"]) .hero{padding:18px 4px 8px}
+    body[data-view]:not([data-view="accueil"]) .hero .title{font-size:30px}
+    /* Tiroir d'analyse : panneau lateral droit au lieu de feuille du bas */
+    .drawer{inset:0 0 0 auto;width:min(480px,100%);max-height:100svh;border-radius:0;border-top:0;border-left:1px solid var(--line);transform:translateX(106%)}
+    .drawer.open{transform:translateX(0)}
+    /* Liste des matchs en deux colonnes */
+    body[data-view="matchs"] #view{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;align-items:start}
+    body[data-view="matchs"] #view .match{margin:0}
+    body[data-view="matchs"] #view .panel.empty{grid-column:1/-1}
+  }
+  /* Grand ecran : encore plus large, matchs en trois colonnes */
+  @media (min-width:1500px){
+    .app{max-width:1500px}
+    body[data-view="matchs"] #view{grid-template-columns:repeat(3,1fr)}
+  }
+  /* Souris : etats de survol */
+  @media (hover:hover) and (pointer:fine){
+    .match,.panel,.btn,.chip,.koTeam,.box{transition:border-color .15s ease, background .15s ease, transform .15s ease}
+    .match:hover{border-color:rgba(52,211,153,.34)}
+    .clickable:hover{border-color:rgba(52,211,153,.34)}
+    .nav button:hover{color:var(--txt);background:rgba(255,255,255,.06)}
+    .btn:hover,.chip:hover{filter:brightness(1.12)}
+    .koTeam:hover{background:rgba(255,255,255,.06)}
+  }
+  /* Accessibilite : focus clavier visible + mouvement reduit */
+  :focus-visible{outline:2px solid var(--green);outline-offset:2px;border-radius:8px}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
 </style>
 </head>
 <body>
