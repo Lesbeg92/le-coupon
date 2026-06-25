@@ -82,6 +82,19 @@ def get_predictions(date_iso, force=False):
     return matches
 
 
+
+IMPORT_PROMPT = (
+    "Tu vois une ou plusieurs captures de la page \"Matchs passes\" du jeu de pronostics RTS. "
+    "Chaque carte de match affiche, en haut, les deux equipes avec deux cases: ce sont le PRONOSTIC du joueur "
+    "(parfois vides, affichees \"-\"). Plus bas, la ligne \"Resultat\" donne le score reel du match. "
+    "Pour chaque carte lisible, extrais: a et b (noms des equipes en francais tels qu'affiches, equipe de gauche puis de droite), "
+    "pa et pb (le pronostic du joueur, gauche puis droite, ou null si les cases sont vides), "
+    "ra et rb (le score reel, depuis la ligne Resultat). "
+    "Reponds UNIQUEMENT par un tableau JSON, sans aucun texte autour ni balises Markdown, au format: "
+    "[{\"a\":\"France\",\"b\":\"Irak\",\"pa\":3,\"pb\":0,\"ra\":3,\"rb\":0}]. "
+    "Mets null quand une valeur est absente. N'invente jamais un pronostic: si les cases du joueur sont vides, pa et pb valent null."
+)
+
 @app.route("/")
 def index():
     # Servi en brut, sans moteur de template, pour ne rien modifier dans ton interface.
@@ -106,6 +119,58 @@ def api_predictions():
 def service_worker():
     # Service worker servi a la racine pour controler tout le site (scope "/").
     return send_file(os.path.join(BASE, "frontend", "sw.js"), mimetype="application/javascript")
+
+
+@app.route("/api/import-pronos", methods=["POST"])
+def api_import_pronos():
+    """Lit des captures RTS et en extrait les pronostics via Claude (vision). Beta."""
+    try:
+        data = request.get_json(force=True, silent=True) or {}
+        images = data.get("images") or []
+        if not isinstance(images, list) or not images:
+            return jsonify({"ok": False, "error": "aucune image"}), 400
+        content = []
+        for im in images[:25]:
+            if isinstance(im, dict):
+                b64, mt = im.get("data"), im.get("media_type") or "image/jpeg"
+            else:
+                b64, mt = im, "image/jpeg"
+            if b64:
+                content.append({"type": "image", "source": {"type": "base64", "media_type": mt, "data": b64}})
+        if not content:
+            return jsonify({"ok": False, "error": "images illisibles"}), 400
+        content.append({"type": "text", "text": IMPORT_PROMPT})
+        client = predictor._get_client()
+        msg = client.messages.create(
+            model=predictor.MODEL, max_tokens=4000,
+            messages=[{"role": "user", "content": content}],
+        )
+        parsed = predictor._extract_json(msg.content)
+        if isinstance(parsed, dict):
+            parsed = parsed.get("pronos") or parsed.get("matches") or []
+
+        def numn(x):
+            if isinstance(x, bool):
+                return None
+            if isinstance(x, (int, float)):
+                return int(x)
+            if isinstance(x, str) and x.strip().lstrip("-").isdigit():
+                return int(x)
+            return None
+
+        out = []
+        for d in (parsed or []):
+            if not isinstance(d, dict):
+                continue
+            a = str(d.get("a") or "").strip()
+            b = str(d.get("b") or "").strip()
+            if not a or not b:
+                continue
+            out.append({"a": a, "b": b, "pa": numn(d.get("pa")), "pb": numn(d.get("pb")),
+                        "ra": numn(d.get("ra")), "rb": numn(d.get("rb"))})
+        return jsonify({"ok": True, "pronos": out})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 @app.route("/api/health")
