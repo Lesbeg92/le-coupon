@@ -387,5 +387,6 @@ render(); setInterval(refreshKO,30000);
 function setLive(s,t){const b=document.getElementById('liveBadge');if(!b)return;const tx=document.getElementById('lbText');b.classList.remove('sync','on','off');if(s==='sync'){b.classList.add('sync');tx.textContent='Connexion...'}else if(s==='on'){b.classList.add('on');tx.textContent='IA connectée'}else{b.classList.add('off');tx.textContent='Hors ligne'}}
 checkHealth(); liveSync(); syncResults(); setInterval(checkHealth,HEALTH_MS); setInterval(function(){liveSync()},ANALYZE_MS); setInterval(syncResults,SYNC_RESULTS_MS); checkReminders(); setInterval(checkReminders,REMIND_MS);
 </script>
+<script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){})})}</script>
 </body>
 </html>
