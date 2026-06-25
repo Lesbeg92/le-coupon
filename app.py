@@ -102,6 +102,12 @@ def api_predictions():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+@app.route("/sw.js")
+def service_worker():
+    # Service worker servi a la racine pour controler tout le site (scope "/").
+    return send_file(os.path.join(BASE, "frontend", "sw.js"), mimetype="application/javascript")
+
+
 @app.route("/api/health")
 def api_health():
     # Test de connexion leger et instantane (aucun appel IA).
