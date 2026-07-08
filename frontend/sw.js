@@ -1,37 +1,21 @@
-/* Le Coupon - service worker
-   Reseau d'abord pour la page (mises a jour immediates quand tu es en ligne),
-   cache de secours hors-ligne, et l'IA (/api/) passe toujours par le reseau. */
-const CACHE = 'lecoupon-v1';
-const SHELL = ['/', '/static/manifest.json', '/static/icon-192.png', '/static/icon-512.png'];
+/* Le Coupon - service worker de nettoyage.
+   Cette version annule l'ancien service worker qui gardait une vieille
+   page en cache. Elle vide tous les caches, se desenregistre, puis
+   recharge la page pour afficher la version en ligne, toujours a jour.
+   Tes pronostics (stockage local) ne sont pas touches. */
+self.addEventListener('install', () => self.skipWaiting());
 
-self.addEventListener('install', e => {
-  self.skipWaiting();
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL).catch(() => {})));
+self.addEventListener('activate', (e) => {
+  e.waitUntil((async () => {
+    try {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+      await self.registration.unregister();
+      const clients = await self.clients.matchAll({ type: 'window' });
+      for (const c of clients) { try { c.navigate(c.url); } catch (_) {} }
+    } catch (_) {}
+  })());
 });
 
-self.addEventListener('activate', e => {
-  e.waitUntil(
-    caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k))))
-      .then(() => self.clients.claim())
-  );
-});
-
-self.addEventListener('fetch', e => {
-  const req = e.request;
-  if (req.method !== 'GET') return;
-  const url = new URL(req.url);
-  if (url.pathname.startsWith('/api/')) return; // IA en direct, jamais en cache
-  if (req.mode === 'navigate') {
-    e.respondWith(
-      fetch(req).then(r => { const cp = r.clone(); caches.open(CACHE).then(c => c.put('/', cp)); return r; })
-        .catch(() => caches.match('/'))
-    );
-    return;
-  }
-  e.respondWith(
-    caches.match(req).then(c => c || fetch(req).then(r => {
-      if (r.ok && url.origin === location.origin) { const cp = r.clone(); caches.open(CACHE).then(ch => ch.put(req, cp)); }
-      return r;
-    }))
-  );
-});
+/* Plus aucune interception: tout passe par le reseau. */
+self.addEventListener('fetch', () => {});
